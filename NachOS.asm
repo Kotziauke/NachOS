@@ -32,7 +32,7 @@ Prompt:
 	MOV CX, 0x0001		;ilość znaków do wypisania
 	INT 0x10		;wywołanie przerwania VGA
 .SkipBackspace:
-	CMP SI, 0x1007		;sprawdzenie długości polecenia
+	CMP SI, 0x100F		;sprawdzenie długości polecenia
 	JZ .ReadKey
 	CMP AL, 0x5B		;sprawdzenie, czy nie wprowadzono małej litery
 	JC .SkipUpperCase
@@ -48,7 +48,7 @@ Prompt:
 	INT 0x10		;wywołanie przerwania VGA
 	JMP .ReadKey
 .Enter:
-	MOV BYTE [SI+1], 0x00	;zakończenie stringa
+	MOV BYTE [SI], 0x00	;zakończenie stringa
 	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
 	MOV AL, 0x0D		;\r
 	INT 0x10		;wywołanie przerwania VGA
@@ -71,9 +71,9 @@ Loader:
 	JMP .Compare		;przejdź do kolejnego znaku
 .Forward:
 	MOV AL, [DI]
-	CMP AL, 0x00
+	CMP AL, 0x00		;czy dotarliśmy do końca polecenia?
 	JZ .SkipAddress
-	INC DI
+	INC DI			;jeśli nie, to idziemy dalej
 	JMP .Forward
 .SkipAddress:
 	ADD DI, 0x03		;przeskakujemy koniec stringa i adres
