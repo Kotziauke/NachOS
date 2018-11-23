@@ -2,8 +2,8 @@ ORG 0x7C00			;ustawienie offsetu
 PUSH CS
 POP DS				;łączenie segmentu danych z segmentem kodu
 
-Booting:
-	MOV SI, szBooting
+Boot:
+	MOV SI, szBoot
 	CALL Print		;wyświetlenie powitania
 
 Prompt:
@@ -94,7 +94,7 @@ Print:
 	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
 .Loop:
 	MOV AL, [SI]		;pobranie znaku spod adresu
-	CMP AL, 0		;sprawdzenie, czy nie natrafiono na koniec stringa
+	CMP AL, 0x00		;sprawdzenie, czy nie natrafiono na koniec stringa
 	JZ .End
 	INT 0x10		;wywołanie przerwania VGA
 	INC SI			;przejście do kolejnego adresu
@@ -102,28 +102,101 @@ Print:
 .End:
 	RET			;powrót z funkcji
 
+szBoot DB 'Dipping NachOS...', 0x0D, 0x0A, 0x00
+szPrompt DB 0x0D, 0x0A, '>', 0x00
+szUnknown DB 'Uknown command.', 0x0D, 0x0A, 0x00
+
 ;Lista programów
 rgProgs DB 'AUTHOR', 0x00
 DW Author
+DB 'DATE', 0x00
+DW Date
+DB 'HELP', 0x00
+DW Help
 DB 'VERSION', 0x00
 DW Version
-DB 0x00				;koniec ciągu
+DB 0x00				;znak końca listy
 
 Author:
-	MOV SI, szAuthor
+	MOV SI, szAuthorMsg
 	CALL Print
 	RET
+szAuthorMsg DB 'Maciej Gabrys', 0x0D, 0x0A, 'Group: 211A', 0x0D, 0x0A, 0x00
+
+Date:
+	MOV AH, 0x04		;przerwanie RTC: odczyt daty
+	INT 0x1A		;wywołanie przerwania RTC
+	MOV BX, CX
+	AND CX, 0x0F0F
+	AND BX, 0xF0F0
+	SHR BX, 0x04
+	ADD BL, '0'		;konwersja cyfr na ASCII
+	ADD BH, '0'
+	ADD CL, '0'
+	ADD CH, '0'
+	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
+	MOV AL, BH		;tysiąclecie
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, CH		;wiek
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, BL		;dekada
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, CL		;jedność
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, '-'
+	INT 0x10		;wywołanie przerwania VGA
+	MOV BX, DX
+	AND DX, 0x0F0F
+	AND BX, 0xF0F0
+	SHR BX, 0x04
+	ADD BL, '0'		;konwersja cyfr na ASCII
+	ADD BH, '0'
+	ADD DL, '0'
+	ADD DH, '0'
+	MOV AL, BH		;miesiąc
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, DH		;miesiąc
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, '-'
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, BL		;dzień
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, DL		;dzień
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, 0x0D
+	INT 0x10		;wywołanie przerwania VGA
+	MOV AL, 0x0A
+	INT 0x10		;wywołanie przerwania VGA
+	RET
+
+Help:
+	MOV SI, szHelpMsg
+	CALL Print
+	MOV SI, rgProgs
+.Loop:
+	CALL Print
+	ADD SI, 0x03
+	MOV AL, [SI]
+	CMP AL, 0x00
+	JZ .End
+	MOV DI, SI
+	MOV SI, szHelpSp
+	CALL Print
+	MOV SI, DI
+	JMP .Loop
+.End:
+	MOV SI, szHelpEd
+	CALL Print
+	RET
+szHelpMsg DB 'Available commands:', 0x0D, 0x0A, 0x00
+szHelpSp DB ', ', 0x00
+szHelpEd DB '.', 0x0D, 0x0A, 0x00
 
 Version:
-	MOV SI, szVersion
+	MOV SI, szVersionMsg
 	CALL Print
 	RET
-
-szBooting DB 'Dipping NachOS...', 0x0D, 0x0A, 0x00
-szPrompt DB 0x0D, 0x0A, '>', 0x00
-szUnknown DB 'Uknown command.', 0x0D, 0x0A, 0x00
-szAuthor DB 'Maciej', 0x0D, 0x0A, 0x00
-szVersion DB 'Version 0.1', 0x0D, 0x0A, 0x00
+szVersionMsg DB 'NachOS v0.1', 0x0D, 0x0A, 0x00
 
 TIMES 510-($-$$) DB 0x00	;wypełnienie zerami do końca segmentu
 DW 0xAA55			;ustawienie sygnatury zgodnej ze standardem IBM PC
