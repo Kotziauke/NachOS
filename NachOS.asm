@@ -49,11 +49,7 @@ Prompt:
 	JMP .ReadKey
 .Enter:
 	MOV BYTE [SI], 0x00	;zakończenie stringa
-	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
-	MOV AL, 0x0D		;\r
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, 0x0A		;\n
-	INT 0x10		;wywołanie przerwania VGA
+	CALL PrintNewLine
 
 Loader:
 	MOV DI, rgProgs		;ustawiene się na początku listy poleceń
@@ -102,6 +98,27 @@ Print:
 .End:
 	RET			;powrót z funkcji
 
+PrintBCD:
+	MOV AH, 0x0E
+	MOV AL, BL
+	AND AL, 0xF0
+	SHR AL, 0x04
+	ADD AL, '0'
+	INT 0x10
+	MOV AL, BL
+	AND AL, 0x0F
+	ADD AL, '0'
+	INT 0x10
+	RET
+
+PrintNewLine:
+	MOV AH, 0x0E
+	MOV AL, 0x0D
+	INT 0x10
+	MOV AL, 0x0A
+	INT 0x10
+	RET
+
 szBoot DB 'Dipping NachOS...', 0x0D, 0x0A, 0x00
 szPrompt DB 0x0D, 0x0A, '>', 0x00
 szUnknown DB 'Uknown command.', 0x0D, 0x0A, 0x00
@@ -113,6 +130,8 @@ DB 'DATE', 0x00
 DW Date
 DB 'HELP', 0x00
 DW Help
+DB 'TIME', 0x00
+DW Time
 DB 'VERSION', 0x00
 DW Version
 DB 0x00				;znak końca listy
@@ -121,74 +140,81 @@ Author:
 	MOV SI, szAuthorMsg
 	CALL Print
 	RET
-szAuthorMsg DB 'Maciej Gabrys', 0x0D, 0x0A, 'Group: 211A', 0x0D, 0x0A, 0x00
+szAuthorMsg DB 'Maciej Gabrys', 0x0D, 0x0A, 0x00
 
 Date:
 	MOV AH, 0x04		;przerwanie RTC: odczyt daty
 	INT 0x1A		;wywołanie przerwania RTC
 	JC .Err			;obsługa braku RTC
-	MOV SI, szDateMsg	;wskazanie na szablon
-	MOV BX, CX
-	AND CX, 0x0F0F
-	AND BX, 0xF0F0
-	SHR BX, 0x04
-	ADD BL, '0'		;konwersja cyfr na ASCII
-	ADD BH, '0'
-	ADD CL, '0'
-	ADD CH, '0'
-	MOV [SI], BH		;nadpisywanie szablonu
-	MOV [SI+1], CH
-	MOV [SI+2], BL
-	MOV [SI+3], CL
-	MOV BX, DX
-	AND DX, 0x0F0F
-	AND BX, 0xF0F0
-	SHR BX, 0x04
-	ADD BL, '0'		;konwersja cyfr na ASCII
-	ADD BH, '0'
-	ADD DL, '0'
-	ADD DH, '0'
-	MOV [SI+5], BH
-	MOV [SI+6], DH
-	MOV [SI+8], BL
-	MOV [SI+9], DL
-	CALL Print
+	MOV BL, CH
+	CALL PrintBCD
+	MOV BL, CL
+	CALL PrintBCD
+	MOV AL, '-'
+	INT 0x10
+	MOV BL, DH
+	CALL PrintBCD
+	MOV AL, '-'
+	INT 0x10
+	MOV BL, DL
+	CALL PrintBCD
+	CALL PrintNewLine
 	RET
 .Err:
 	MOV SI, szDateErr
 	CALL Print
 	RET
-szDateMsg DB '....-..-..', 0x0D, 0x0A, 0x00
 szDateErr DB 'Date not set!', 0x0D, 0x0A, 0x00
+
+Time:
+	MOV AH, 0x02		;przerwanie RTC: odczyt czasu
+	INT 0x1A		;wywołanie przerwania RTC
+	JC .Err			;obsługa braku RTC
+	MOV BL, CH
+	CALL PrintBCD
+	MOV AL, ':'
+	INT 0x10
+	MOV BL, CL
+	CALL PrintBCD
+	MOV AL, ':'
+	INT 0x10
+	MOV BL, DH
+	CALL PrintBCD
+	CALL PrintNewLine
+	RET
+.Err:
+	MOV SI, szTimeErr
+	CALL Print
+	RET
+szTimeErr DB 'Time not set!', 0x0D, 0x0A, 0x00
+
 
 Help:
 	MOV SI, szHelpMsg
 	CALL Print
 	MOV SI, rgProgs
 .Loop:
-	CALL Print
-	ADD SI, 0x03
 	MOV AL, [SI]
 	CMP AL, 0x00
 	JZ .End
 	MOV DI, SI
-	MOV SI, szHelpSp
+	MOV SI, szHelpPr
 	CALL Print
 	MOV SI, DI
+	CALL Print
+	ADD SI, 0x03
 	JMP .Loop
 .End:
-	MOV SI, szHelpEd
-	CALL Print
+	CALL PrintNewLine
 	RET
-szHelpMsg DB 'Available commands:', 0x0D, 0x0A, 0x00
-szHelpSp DB ', ', 0x00
-szHelpEd DB '.', 0x0D, 0x0A, 0x00
+szHelpMsg DB 'Available commands:', 0x00
+szHelpPr DB 0x0D, 0x0A, '- ', 0x00
 
 Version:
 	MOV SI, szVersionMsg
 	CALL Print
 	RET
-szVersionMsg DB 'NachOS v0.1', 0x0D, 0x0A, 0x00
+szVersionMsg DB 'Version 0.1', 0x0D, 0x0A, 0x00
 
 TIMES 510-($-$$) DB 0x00	;wypełnienie zerami do końca segmentu
 DW 0xAA55			;ustawienie sygnatury zgodnej ze standardem IBM PC
