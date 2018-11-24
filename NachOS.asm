@@ -74,8 +74,8 @@ Loader:
 .SkipAddress:
 	ADD DI, 0x03		;przeskakujemy koniec stringa i adres
 	MOV AL, [DI]		;sprawdzenie, czy to nie koniec listy
-	CMP AL, 0x00
-	JZ .Unknown
+	CMP AL, 0xFF		;czy koniec listy?
+	JZ .Unknown		;zatem nieznane polecenie
 	JMP .Rewind
 .Execute:
 	INC DI			;przejdź do początku adresu programu
@@ -134,7 +134,7 @@ DB 'TIME', 0x00
 DW Time
 DB 'VERSION', 0x00
 DW Version
-DB 0x00				;znak końca listy
+DB 0xFF				;znak końca listy
 
 Author:
 	MOV SI, szAuthorMsg
@@ -195,7 +195,7 @@ Help:
 	MOV SI, rgProgs
 .Loop:
 	MOV AL, [SI]
-	CMP AL, 0x00
+	CMP AL, 0xFF
 	JZ .End
 	MOV DI, SI
 	MOV SI, szHelpPr
