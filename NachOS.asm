@@ -126,6 +126,8 @@ szAuthorMsg DB 'Maciej Gabrys', 0x0D, 0x0A, 'Group: 211A', 0x0D, 0x0A, 0x00
 Date:
 	MOV AH, 0x04		;przerwanie RTC: odczyt daty
 	INT 0x1A		;wywołanie przerwania RTC
+	JC .Err			;obsługa braku RTC
+	MOV SI, szDateMsg	;wskazanie na szablon
 	MOV BX, CX
 	AND CX, 0x0F0F
 	AND BX, 0xF0F0
@@ -134,17 +136,10 @@ Date:
 	ADD BH, '0'
 	ADD CL, '0'
 	ADD CH, '0'
-	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
-	MOV AL, BH		;tysiąclecie
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, CH		;wiek
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, BL		;dekada
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, CL		;jedność
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, '-'
-	INT 0x10		;wywołanie przerwania VGA
+	MOV [SI], BH		;nadpisywanie szablonu
+	MOV [SI+1], CH
+	MOV [SI+2], BL
+	MOV [SI+3], CL
 	MOV BX, DX
 	AND DX, 0x0F0F
 	AND BX, 0xF0F0
@@ -153,21 +148,18 @@ Date:
 	ADD BH, '0'
 	ADD DL, '0'
 	ADD DH, '0'
-	MOV AL, BH		;miesiąc
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, DH		;miesiąc
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, '-'
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, BL		;dzień
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, DL		;dzień
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, 0x0D
-	INT 0x10		;wywołanie przerwania VGA
-	MOV AL, 0x0A
-	INT 0x10		;wywołanie przerwania VGA
+	MOV [SI+5], BH
+	MOV [SI+6], DH
+	MOV [SI+8], BL
+	MOV [SI+9], DL
+	CALL Print
 	RET
+.Err:
+	MOV SI, szDateErr
+	CALL Print
+	RET
+szDateMsg DB '....-..-..', 0x0D, 0x0A, 0x00
+szDateErr DB 'Date not set!', 0x0D, 0x0A, 0x00
 
 Help:
 	MOV SI, szHelpMsg
