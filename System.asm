@@ -1,13 +1,42 @@
-ORG 0x7C00			;ustawienie offsetu
-PUSH CS
-POP DS				;łączenie segmentu danych z segmentem kodu
+MOV AX, CS	;Nie można przypisać stałej bezpośrednio do DS.
+MOV DS, AX	;Ustawia Data Segment na wartość Code Segment.
 
 Boot:
-	MOV SI, szBoot
+	MOV AH, 0x00		;Rodzaj przerwania: zmiana trybu graficznego.
+	MOV AL, 0x04		;Argument przerwania: 320x200, 4 kolory.
+	INT 0x10		;Wywołanie przerwania obsługi ekranu.
+	MOV AH, 0x0B		;Rodzaj przerwania: zmiana palety.
+	MOV BH, 0x01		;Argument przerwania: zmiana frontu.
+	MOV BL, 0x00		;Argument przerwania: wybór frontu.
+	INT 0x10		;Wywołanie przerwania obsługi grafiki.
+	
+	MOV BL, 0x02		;Argument funkcji: kolor czerwony.
+	MOV SI, szBoot1		;Argument funkcji: adres na pierwszy znak ciągu.
+	CALL Print		;wyświetlenie powitania
+	
+	MOV BL, 0x03		;Argument funkcji: kolor żółty.
+	MOV SI, szBoot2		;Argument funkcji: adres na pierwszy znak ciągu.
+	CALL Print		;wyświetlenie powitania
+	
+	MOV BL, 0x01		;Argument funkcji: kolor zielony.
+	MOV SI, szBoot3		;Argument funkcji: adres na pierwszy znak ciągu.
+	CALL Print		;wyświetlenie powitania
+	
+	MOV BL, 0x03		;Argument funkcji: kolor żółty.
+	MOV SI, szBoot4		;Argument funkcji: adres na pierwszy znak ciągu.
+	CALL Print		;wyświetlenie powitania
+	
+	MOV BL, 0x01		;Argument funkcji: kolor zielony.
+	MOV SI, szBoot5		;Argument funkcji: adres na pierwszy znak ciągu.
+	CALL Print		;wyświetlenie powitania
+	
+	MOV BL, 0x03		;Argument funkcji: kolor żółty.
+	MOV SI, szBoot6		;Argument funkcji: adres na pierwszy znak ciągu.
 	CALL Print		;wyświetlenie powitania
 
 Prompt:
-	MOV SI, szPrompt
+	MOV BL, 0x02		;Argument funkcji: kolor czerwony.
+	MOV SI, szPrompt	;Argument funkcji: adres na pierwszy znak ciągu.
 	CALL Print		;wyświetlenie znaku zachęty
 	MOV SI, 0x1000		;przewinięcie bufora wprowadzanego polecenia
 .ReadKey:
@@ -44,10 +73,13 @@ Prompt:
 	JNC .ReadKey
 	MOV BYTE [SI], AL	;zapisanie znaku w buforze
 	INC SI			;zwiększenie licznika
+	MOV BL, 0x01		;Argument przerwania: kolor zielony.
 	MOV AH, 0x0E		;przerwanie VGA: wypisanie znaku i przejście w prawo
 	INT 0x10		;wywołanie przerwania VGA
 	JMP .ReadKey
 .Enter:
+	CMP SI, 0x1000		;sprawdzenie, czy ciąg nie jest pusty
+	JZ .ReadKey
 	MOV BYTE [SI], 0x00	;zakończenie stringa
 	CALL PrintNewLine
 
@@ -82,11 +114,12 @@ Loader:
 	CALL [DI]		;wykonaj program!
 	JMP Prompt		;gdy program się zakończy, wróć do linii poleceń
 .Unknown:
-	MOV SI, szUnknown
+	MOV BL, 0x02		;Argument funkcji: kolor czerwony.
+	MOV SI, szUnknown	;Argument funkcji: adres na pierwszy znak ciągu.
 	CALL Print		;wypisanie komunikatu o błędzie
 	JMP Prompt		;powrót do linii poleceń
 
-Print:
+Print: ;Wymaga: SI - adres pierwszego znaku, BL - kolor
 	MOV AH, 0x0E		;przerwanie VGA: wyświetlenie znaku
 .Loop:
 	MOV AL, [SI]		;pobranie znaku spod adresu
@@ -100,12 +133,12 @@ Print:
 
 PrintBCD:
 	MOV AH, 0x0E
-	MOV AL, BL
+	MOV AL, BH
 	AND AL, 0xF0
 	SHR AL, 0x04
 	ADD AL, '0'
 	INT 0x10
-	MOV AL, BL
+	MOV AL, BH
 	AND AL, 0x0F
 	ADD AL, '0'
 	INT 0x10
@@ -119,77 +152,90 @@ PrintNewLine:
 	INT 0x10
 	RET
 
-szBoot DB 'Dipping NachOS...', 0x0D, 0x0A, 0x00
+szBoot1 DB 'Witaj w moim systemie!', 0x0D, 0x0A, 0x0D, 0x0A, 0x00
+szBoot2 DB "Wpisz ", 0x00
+szBoot3 DB "POMOC", 0x00
+szBoot4 DB " i nacisnij ", 0x00
+szBoot5 DB "ENTER", 0x00
+szBoot6 DB " aby", 0x0D, 0x0A, "zobaczyc liste dostepnych komend.", 0x0D, 0x0A, 0x00
 szPrompt DB 0x0D, 0x0A, '>', 0x00
-szUnknown DB 'Uknown command.', 0x0D, 0x0A, 0x00
+szUnknown DB 'Nieznane polecenie!', 0x0D, 0x0A, 0x00
 
 ;Lista programów
-rgProgs DB 'AUTHOR', 0x00
+rgProgs DB 'AUTOR', 0x00
 DW Author
-DB 'DATE', 0x00
-DW Date
-DB 'HELP', 0x00
-DW Help
-DB 'TIME', 0x00
+DB 'CZAS', 0x00
 DW Time
-DB 'VERSION', 0x00
+DB 'DATA', 0x00
+DW Date
+DB 'POMOC', 0x00
+DW Help
+DB 'WERSJA', 0x00
 DW Version
+DB 'WYCZYSC', 0x00
+DW Clear
 DB 0xFF				;znak końca listy
 
 Author:
+	MOV BL, 0x03
 	MOV SI, szAuthorMsg
 	CALL Print
 	RET
-szAuthorMsg DB 'Maciej Gabrys', 0x0D, 0x0A, 0x00
+szAuthorMsg DB 'Autorem jest Maciej Gabrys, gr. 211A.', 0x0D, 0x0A, 0x00
 
 Date:
 	MOV AH, 0x04		;przerwanie RTC: odczyt daty
 	INT 0x1A		;wywołanie przerwania RTC
 	JC .Err			;obsługa braku RTC
-	MOV BL, CH
+	MOV BH, CH
+	MOV BL, 0x03
 	CALL PrintBCD
-	MOV BL, CL
-	CALL PrintBCD
-	MOV AL, '-'
-	INT 0x10
-	MOV BL, DH
+	MOV BH, CL
 	CALL PrintBCD
 	MOV AL, '-'
 	INT 0x10
-	MOV BL, DL
+	MOV BH, DH
+	CALL PrintBCD
+	MOV AL, '-'
+	INT 0x10
+	MOV BH, DL
 	CALL PrintBCD
 	CALL PrintNewLine
 	RET
 .Err:
+	MOV BL, 0x02
 	MOV SI, szDateErr
 	CALL Print
 	RET
-szDateErr DB 'Date not set!', 0x0D, 0x0A, 0x00
+szDateErr DB 'Date nie ustawiona!', 0x0D, 0x0A, 0x00
 
 Time:
 	MOV AH, 0x02		;przerwanie RTC: odczyt czasu
 	INT 0x1A		;wywołanie przerwania RTC
 	JC .Err			;obsługa braku RTC
-	MOV BL, CH
+	MOV BH, CH
+	MOV BL, 0x03
 	CALL PrintBCD
 	MOV AL, ':'
 	INT 0x10
-	MOV BL, CL
+	MOV BH, CL
 	CALL PrintBCD
 	MOV AL, ':'
 	INT 0x10
-	MOV BL, DH
+	MOV BH, DH
 	CALL PrintBCD
 	CALL PrintNewLine
 	RET
 .Err:
+	MOV BL, 0x02
 	MOV SI, szTimeErr
 	CALL Print
 	RET
-szTimeErr DB 'Time not set!', 0x0D, 0x0A, 0x00
+szTimeErr DB 'Czas nie ustawiony!', 0x0D, 0x0A, 0x00
 
 
 Help:
+	MOV BL, 0x03
 	MOV SI, szHelpMsg
 	CALL Print
 	MOV SI, rgProgs
@@ -207,14 +253,23 @@ Help:
 .End:
 	CALL PrintNewLine
 	RET
-szHelpMsg DB 'Available commands:', 0x00
+szHelpMsg DB 'Lista dostepnych komend:', 0x00
 szHelpPr DB 0x0D, 0x0A, '- ', 0x00
 
 Version:
+	MOV BL, 0x03
 	MOV SI, szVersionMsg
 	CALL Print
 	RET
-szVersionMsg DB 'Version 0.1', 0x0D, 0x0A, 0x00
+szVersionMsg DB 'Wersja 0.2', 0x0D, 0x0A, 0x00
 
-TIMES 510-($-$$) DB 0x00	;wypełnienie zerami do końca segmentu
-DW 0xAA55			;ustawienie sygnatury zgodnej ze standardem IBM PC
+Clear:
+	TIMES 24 CALL PrintNewLine
+	MOV AH, 0x02		;Rodzaj przerwania: przesunięcie kursora.
+	MOV BH, 0x00		;Argument przerwania: strona.
+	MOV DH, 0x00		;Argument przerwania: wiersz.
+	MOV DL, 0x00		;Argument przerwania: kolumna.
+	INT 0x10		;Wywołanie przerwania obsługi grafiki.
+	RET
+
+TIMES 4 * 512 - ($ - $$) DB 0x00 ;Dopełnia zerami do końca sektora.
